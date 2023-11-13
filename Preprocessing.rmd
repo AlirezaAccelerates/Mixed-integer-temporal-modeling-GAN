@@ -1,0 +1,115 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = F, warning = F)
+```
+
+```{r}
+data_fluid.overload=read.csv("data_fluid.overload.csv",header=T)
+```
+
+```{r}
+variables.table_imp=c("Age (>=65)","Sex (Male)","ICU Population (medical)","APACHE II at 24 hours",
+                   "SOFA at 24 hours","MRC-ICU at 24 hours",
+                   "Admission Diagnosis & Co-morbidities",
+                   "AKI at 24 hours","Use of CRRT at 24 hours","Any CRRT",
+                   "Mechanical ventilation before 24 hours",
+                   "Any mechanical ventilation",
+                   "Laboratory values-Lactate",
+                   "Laboratory values-Creatinine",
+                   "Laboratory values-Sodium",
+                   "Laboratory values-Chloride",
+                   "Laboratory values-Potassium",
+                   "Laboratory values-Bicarbonate",
+                   "Laboratory values-Albumin",
+                   "Vasopressor use in first 24 hours","Use of continuous infusion",
+                   "Number of continuous infusions",
+                   "Fluid balance at 24 hr (mL)","Length of ICU stay",
+                   "Fluid Overload (via weight)","Fluid Overload (via volume)"
+                   )
+
+variables.data_imp=c("age_at_time","SEX","main_ICU_type","APACHE_24h_score",
+                     "SOFA_24h_score","score_24h",
+                     "Coded_Diagnosis",
+                     "AKI_24h","CRRT_24h","CRRT","MV_in24h_fac",
+                     "Mechanical_ventilation",
+                     "max_lactate_24h","max_creatinine_24h","max_sodium_24h",
+                     "max_chloride_24h","max_potassium_24h","max_Bicarbonate_24h",
+                     "max_albumin_24h",
+                     "Vasopressor_24h","Use_CI_24h","Num_CI_24h",
+                     "cum_fluid_day1",
+                     "length_of_ICUstay_days",
+                     "fluid_overload_weight","fluid_overload_volume.net"
+                     )
+```
+
+```{r}
+missing_pattern=matrix(apply(data_fluid.overload[,variables.data_imp],
+                             2,function(x){sum(is.na(x))}))
+rownames(missing_pattern)=variables.table_imp
+colnames(missing_pattern)="Number of Missing Values"
+kable(missing_pattern,caption="Missing Value Structure",
+      align=rep("c",1))
+```
+
+```{r}
+missing_pattern=matrix(apply(data_fluid.overload[,variables.data_imp],
+                             2,function(x){sum(is.na(x))}))
+rownames(missing_pattern)=variables.table_imp
+colnames(missing_pattern)="Number of Missing Values"
+kable(missing_pattern,caption="Missing Value Structure",
+      align=rep("c",1))
+```
+
+```{r}
+data_fluid.overload_imp=data_fluid.overload[,variables.data_imp]%>%
+  mutate(SEX=factor(SEX,levels=c("Female","Male")),
+         main_ICU_type=factor(main_ICU_type),
+         Coded_Diagnosis=factor(Coded_Diagnosis,levels=c("Others","Trauma",
+                                                         "Sepsis","Hepatic",
+                                                         "Cardiac","Pulmonary",
+                                                         "Pancreatitis",
+                                                         "PAH","Rhabdomyolysis",
+                                                         "Cirrhosis",
+                                                         "Heart_Failure","CKD")),
+         AKI_24h=factor(AKI_24h),
+         CRRT_24h=factor(CRRT_24h),
+         CRRT=factor(CRRT),
+         MV_in24h_fac=factor(MV_in24h_fac),
+         Mechanical_ventilation=factor(Mechanical_ventilation),
+         max_lactate_24h=factor(max_lactate_24h),
+         max_creatinine_24h=factor(max_creatinine_24h),
+         max_sodium_24h=factor(max_sodium_24h),
+         max_chloride_24h=factor(max_chloride_24h),
+         max_potassium_24h=factor(max_potassium_24h),
+         max_Bicarbonate_24h=factor(max_Bicarbonate_24h),
+         max_albumin_24h=factor(max_albumin_24h),
+         Vasopressor_24h=factor(Vasopressor_24h),
+         Use_CI_24h=factor(Use_CI_24h)
+         )
+
+methods=c(rep("",3),rep("norm.predict",2),rep("",7),rep("logreg",2),"polyreg",
+          rep("logreg",2),"polyreg","logreg",rep("",3),"norm.predict",
+          "",rep("norm.predict",2))
+data_fluid.overload_imputed=mice(data_fluid.overload_imp,m=10,printFlag=FALSE,
+                                 method=methods,maxit=20,
+                                 seed=12345)
+```
+
+```{r}
+longtab=complete(data_fluid.overload_imputed,action='long',include=TRUE)
+longtab=longtab%>%
+  dplyr::select(-max_lactate_24h,-max_albumin_24h)%>%
+  mutate(APACHE_24h_score=round(APACHE_24h_score),
+         SOFA_24h_score=round(SOFA_24h_score),
+         age_at_time=factor(sapply(age_at_time>=65,sum)),
+         main_ICU_type=factor(sapply(main_ICU_type=="Medical",sum)),
+         MV_in24h_fac=factor(sapply(MV_in24h_fac=="before 24h",sum)),
+         fluid_overload_continuous=ifelse(is.na(fluid_overload_weight)|is.na(fluid_overload_volume.net),NA,
+                                          apply(cbind(fluid_overload_weight,fluid_overload_volume.net),1,max)),
+         fluid_overload=sapply(fluid_overload_continuous>=1.1,sum))%>%
+  dummy_cols(select_columns="Coded_Diagnosis")%>%
+  dplyr::select(-fluid_overload_weight,-fluid_overload_volume.net,-fluid_overload_continuous)
+
+data_fluid.overload_imputed_use=as.mids(longtab)
+
+data_fluid.overload_imputed_use.to_csv("./data_fluid.overload_imputed", index=False)
+```
