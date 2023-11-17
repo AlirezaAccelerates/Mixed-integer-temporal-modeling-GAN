@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
+from sklearn.model_selection import StratifiedKFold, ParameterGrid
+from imblearn.over_sampling import SMOTE
 
 # Set random seeds
 np.random.seed(2023)
@@ -34,12 +39,51 @@ data['Mechanical_ventilation'] = data['Mechanical_ventilation'].map({'Yes': 1, '
 data['Vasopressor_24h'] = data['Vasopressor_24h'].map({'Yes': 1, 'No': 0})
 data['Use_CI_24h'] = data['Use_CI_24h'].map({'Yes': 1, 'No': 0})
 
-# Search space
-param_grids = {
-    'SVM': [SVC(), {'classifier__C': [0.2, 0.5, 0.8, 1.5, 3, 5, 10, 25, 50], 'classifier__kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'classifier__degree': [2, 3, 4, 8], 'classifier__random_state': [random_state]}],
-    'Random Forest': [RandomForestClassifier(), {'classifier__n_estimators': [100, 150, 200, 300, 500, 1000, 1500, 3000], 'classifier__max_depth': [5, 8, 10, 12, 14, 18], 
-                      'classifier__min_samples_split': [1, 2, 4], 'classifier__min_samples_split': [2, 4, 5, 10], 'classifier__class_weight': [{0.0:1,1.0:1},{0.0:1,1.0:1.2},{0.0:1,1.0:1.5}], 'classifier__random_state': [random_state]}],
-    'XGBoost': {'classifier__n_estimators': [100, 250, 500], 'classifier__max_depth': [5, 7, 12, 15], 'classifier__learning_rate': [0.01, 0.1], 'classifier__colsample_bytree': [0.6, 0.8, 1],
-                'classifier__gamma': [0, 0.1, 1], 'classifier__scale_pos_weight': [1, 1.1, 1.2, 1.5, 2], 'classifier__random_state': [random_state]}
+# Define the classifiers and their parameter grids
+classifiers = {
+    'SVM': [SVC(), {'C': [0.2, 0.5, 0.8, 1.5, 3, 5, 10, 25, 50], 'kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'degree': [2, 3, 4, 8], 'random_state': [random_state]}],
+    'Random Forest': [RandomForestClassifier(), {'n_estimators': [100, 150, 200, 300, 500, 1000, 1500, 3000], 'max_depth': [5, 8, 10, 12, 14, 18], 
+                      'min_samples_split': [1, 2, 4], 'min_samples_split': [2, 4, 5, 10], 'class_weight': [{0.0:1,1.0:1},{0.0:1,1.0:1.2},{0.0:1,1.0:1.5}], 'random_state': [random_state]}],
+    'XGBoost': [xgb.XGBClassifier, {'n_estimators': [100, 250, 500], 'max_depth': [5, 7, 12, 15], 'learning_rate': [0.01, 0.1], 'colsample_bytree': [0.6, 0.8, 1],
+                'gamma': [0, 0.1, 1], 'scale_pos_weight': [1, 1.1, 1.2, 1.5, 2], 'random_state': [random_state]}]
 }
 
+rf_grid = {'n_estimators': [100, 150, 200, 300, 500, 1000, 1500, 3000], 'max_depth': [5, 8, 10, 12, 14, 18], 
+                      'min_samples_split': [1, 2, 4], 'min_samples_split': [2, 4, 5, 10], 'class_weight': [{0.0:1,1.0:1},{0.0:1,1.0:1.2},{0.0:1,1.0:1.5}], 'random_state': [random_state]}
+svm_grid = {'C': [0.2, 0.5, 0.8, 1.5, 3, 5, 10, 25, 50], 'kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'degree': [2, 3, 4, 8], 'random_state': [random_state]}
+xgb_grid = {'n_estimators': [100, 250, 500], 'max_depth': [5, 7, 12, 15], 'learning_rate': [0.01, 0.1], 'colsample_bytree': [0.6, 0.8, 1],
+                'gamma': [0, 0.1, 1], 'scale_pos_weight': [1, 1.1, 1.2, 1.5, 2], 'random_state': [random_state]}
+
+
+# Stratified K-Folds cross-validator
+cv = StratifiedKFold(n_splits=5)
+
+# Iterate over classifiers and hyperparameters
+best_params = {}
+for name, (classifier, param_grid) in classifiers.items():
+    best_score = 0
+    for params in ParameterGrid(param_grid):
+        classifier.set_params(**params)
+        scores = []
+        for train_idx, test_idx in cv.split(X, y):
+            X_train, X_test = X[train_idx], X[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
+            
+            # Apply SMOTE
+            smote = SMOTE()
+            X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+            
+            # Train the model
+            classifier.fit(X_train_smote, y_train_smote)
+            y_pred = classifier.predict(X_test)
+            scores.append(accuracy_score(y_test, y_pred))
+        
+        mean_score = np.mean(scores)
+        if mean_score > best_score:
+            best_score = mean_score
+            best_params[name] = params
+
+# Print the best parameters for each classifier
+for classifier in best_params:
+    print(f"Best parameters for {classifier}: {best_params[classifier]}")
+    print(f"Best cross-validation score for {classifier}: {best_score}")
