@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 import xgboost as xgb
 from sklearn.model_selection import StratifiedKFold, ParameterGrid
 from imblearn.over_sampling import SMOTE
-from sklearn.naive_bayes import GaussianNB, ComplementNB, BernoulliNB,MultinomialNB
+from sklearn.naive_bayes import GaussianNB, ComplementNB, BernoulliNB, MultinomialNB
 from Choquet import ChoquetIntegral
 from sklearn.metrics import roc_auc_score
 
@@ -49,16 +49,19 @@ rf_grid = {'n_estimators': [100, 150, 200, 300, 500, 1000, 1500, 3000], 'max_dep
 svm_grid = {'C': [0.2, 0.5, 0.8, 1.5, 3, 5, 10, 25, 50], 'kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'degree': [2, 3, 4, 8], 'random_state': [random_state]}
 xgb_grid = {'n_estimators': [100, 250, 500], 'max_depth': [5, 7, 12, 15], 'learning_rate': [0.01, 0.1], 'colsample_bytree': [0.6, 0.8, 1],
                 'gamma': [0, 0.1, 1], 'scale_pos_weight': [1, 1.1, 1.2, 1.5, 2], 'random_state': [random_state]}
-
-# Search space for the meta-model
-dt_grid = {'max_depth': [3, 5, 10], 'min_samples_split': [2, 5, 10]}
-ada_grid = {'n_estimators': [50, 100, 200], 'learning_rate': [0.01, 0.1, 1]}
+mlp_grid = {'hidden_layer_sizes': [(8,32,8),(16,32,8), (32,16,8), (32,64,16)]}
+nb_grid = {'var_smoothing' :[]}
 
 meta_grids = {
+    'RandomForest': rf_grid,
+    'MLPClassifier': mlp_grid,
+    'GNaiveBayes': nb_grid,
+    'BNaiveBayes': None,
+    'CNaiveBayes': None,
+    'MNaiveBayes': None,
     'LogisticRegression': None,
-    'DecisionTree': dt_grid,
-    'AdaBoost': ada_grid,
-    'CustomModel': None  # 'None' indicates no hyperparameters for 'ch'
+    'VotingClassifier': None,
+    'Choquet': None
 }
 
 # Stratified K-Folds cross-validator
@@ -115,9 +118,10 @@ for rf_params in ParameterGrid(rf_grid):
             # Update best score and parameters if current score is better
             if avg_score > best_score:
                 best_score = avg_score
-                best_params = {'rf': rf_params, 'svm': svm_params, 'xgb': xgb_params}
+                best_params = {'rf': rf_params, 'svm': svm_params, 'xgb': xgb_params,
+                               'meta': meta_params, 'meta_model': meta_name}
 
 # Print the best score and corresponding parameters
-print("Best Ensemble Model Accuracy:", best_score)
+print("Best Ensemble Model Performance:", best_score)
 print("Best Parameters:", best_params)
 
