@@ -7,6 +7,7 @@ import xgboost as xgb
 from sklearn.model_selection import StratifiedKFold, ParameterGrid
 from imblearn.over_sampling import SMOTE
 from sklearn.naive_bayes import GaussianNB, ComplementNB, BernoulliNB, MultinomialNB
+from sklearn.linear_model import LogisticRegression
 from Choquet import ChoquetIntegral
 from sklearn.metrics import roc_auc_score
 
@@ -49,8 +50,8 @@ rf_grid = {'n_estimators': [100, 150, 200, 300, 500, 1000, 1500, 3000], 'max_dep
 svm_grid = {'C': [0.2, 0.5, 0.8, 1.5, 3, 5, 10, 25, 50], 'kernel': ['linear', 'poly', 'rbf', 'sigmoid'], 'degree': [2, 3, 4, 8], 'random_state': [random_state]}
 xgb_grid = {'n_estimators': [100, 250, 500], 'max_depth': [5, 7, 12, 15], 'learning_rate': [0.01, 0.1], 'colsample_bytree': [0.6, 0.8, 1],
                 'gamma': [0, 0.1, 1], 'scale_pos_weight': [1, 1.1, 1.2, 1.5, 2], 'random_state': [random_state]}
-mlp_grid = {'hidden_layer_sizes': [(8,32,8),(16,32,8), (32,16,8), (32,64,16)]}
-nb_grid = {'var_smoothing' :[0.1]}
+mlp_grid = {'hidden_layer_sizes': [(8,32,8), (16,32,8), (32,16,8), (32,64,16)]}
+nb_grid = {'var_smoothing': [1e-9, 1e-7, 1e-5, 1e-3, 0.01, 0.05, 0.1, 0.3, 0.5, 0.7]}
 
 meta_grids = {
     'RandomForest': rf_grid,
@@ -99,6 +100,23 @@ for rf_params in ParameterGrid(rf_grid):
 
                     # Combine the predictions for the meta-model
                     meta_features = np.column_stack([rf_pred, svm_pred, xgb_pred])
+
+                    for meta_name, meta_grid in meta_grids.items():
+                        if meta_grid is not None:  # For models with hyperparameters
+                            for meta_params in ParameterGrid(meta_grid):
+                                # Instantiate meta-model based on the type
+                                if meta_name == 'LogisticRegression':
+                                    meta_model = LogisticRegression(**meta_params)
+                                elif meta_name == 'DecisionTree':
+                                    meta_model = DecisionTreeClassifier(**meta_params)
+                                elif meta_name == 'AdaBoost':
+                                    meta_model = AdaBoostClassifier(**meta_params)
+
+                                # Rest of the ensemble evaluation code...
+                                # ...
+                        else:  # For 'ch' which has no hyperparameters
+                            if meta_name == 'CustomModel':
+                                meta_model = ch()  # Instantiate your custom model
 
                     # Train the meta-model
                     meta_model = GaussianNB().fit(meta_features, y_val)
