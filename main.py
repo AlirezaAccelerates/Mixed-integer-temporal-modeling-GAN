@@ -50,7 +50,7 @@ svm_grid = {'C': [0.2, 0.5, 0.8, 1.5, 3, 5, 10, 25, 50], 'kernel': ['linear', 'p
 xgb_grid = {'n_estimators': [100, 250, 500], 'max_depth': [5, 7, 12, 15], 'learning_rate': [0.01, 0.1], 'colsample_bytree': [0.6, 0.8, 1],
                 'gamma': [0, 0.1, 1], 'scale_pos_weight': [1, 1.1, 1.2, 1.5, 2], 'random_state': [random_state]}
 mlp_grid = {'hidden_layer_sizes': [(8,32,8),(16,32,8), (32,16,8), (32,64,16)]}
-nb_grid = {'var_smoothing' :[]}
+nb_grid = {'var_smoothing' :[0.1]}
 
 meta_grids = {
     'RandomForest': rf_grid,
