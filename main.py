@@ -110,6 +110,13 @@ for rf_params in ParameterGrid(rf_grid):
                             y_opt, y_val = y_train[opt_idx], y_train[val_idx]  
                             ensemble_scores_inner = []
 
+                            # Apply SMOTE
+                            smote = SMOTE(random_state = random_state)
+                            X_opt_smote, y_opt_smote = smote.fit_resample(X_train, y_train)
+
+                            X_opt = pd.concat([X_opt, X_opt_smote], axis =1)
+                            y_opt = pd.concat([y_opt, y_opt_smote], axis =1)
+
                             # Train each base model with the current set of parameters
                             rf_model = RandomForestClassifier(**rf_params).fit(X_opt, y_opt)
                             svm_model = SVC(**svm_params, probability=True).fit(X_opt, y_opt)
@@ -146,4 +153,3 @@ for rf_params in ParameterGrid(rf_grid):
 
 # Print the best parameters
 print("Best Parameters:", best_params)
-
