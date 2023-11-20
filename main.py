@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 import xgboost as xgb
 from sklearn.model_selection import StratifiedKFold, ParameterGrid
 from imblearn.over_sampling import SMOTE
+from ctgan import CTGAN
 from sklearn.naive_bayes import GaussianNB, ComplementNB, BernoulliNB, MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from Choquet import ChoquetIntegral
@@ -112,10 +113,22 @@ for rf_params in ParameterGrid(rf_grid):
 
                             # Apply SMOTE
                             smote = SMOTE(random_state = random_state)
-                            X_opt_smote, y_opt_smote = smote.fit_resample(X_train, y_train)
+                            X_opt_smote, y_opt_smote = smote.fit_resample(X_opt, y_opt)
 
-                            X_opt = pd.concat([X_opt, X_opt_smote], axis =1)
-                            y_opt = pd.concat([y_opt, y_opt_smote], axis =1)
+                            opt_data = pd.concat([X_opt, y_opt], axis=1)
+
+                            # Create and train the CTGAN model
+                            ctgan = CTGAN()
+                            ctgan.fit(opt_data.astype('float'), epochs=epochs)
+
+                            num_opt_data_ctgan = len(opt_data)
+                            opt_data_ctgan = ctgan.sample(num_opt_data_ctgan)
+
+                            X_opt_ctgan = opt_data_ctgan.iloc[:,:-1]
+                            y_opt_ctgan = opt_data_ctgan.iloc[:,-1]
+
+                            X_opt = pd.concat([X_opt, X_opt_smote, X_opt_ctgan], axis =1)
+                            y_opt = pd.concat([y_opt, y_opt_smote, y_opt_ctgan], axis =1)
 
                             # Train each base model with the current set of parameters
                             rf_model = RandomForestClassifier(**rf_params).fit(X_opt, y_opt)
