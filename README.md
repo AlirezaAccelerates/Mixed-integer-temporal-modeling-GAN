@@ -5,11 +5,11 @@ This repo aims at providing insight into the workflow of the ["Improving mixed-i
 ## Overview
 ![](Overview.png)
 
-# Objective
+### Objective
 The challenge of mixed-integer temporal data, which is particularly prominent for medication use in the critically ill, limits the performance of predictive models. The purpose of this evaluation was to pilot test integrating synthetic data within an existing dataset of complex medication data to improve machine learning model prediction of fluid overload. 
-# Materials and Methods
+### Materials and Methods
 This retrospective cohort study evaluated patients admitted to an ICU ≥ 72 hours. Four machine learning algorithms to predict fluid overload after 48-72 hours of ICU admission were developed using the original dataset. Then, two distinct synthetic data generation methodologies (synthetic minority over-sampling technique (SMOTE) and conditional tabular generative adversarial network (CTGAN)) were used to create synthetic data. Finally, a stacking ensemble technique designed to train a meta-learner was established. Models underwent training in three scenarios of varying qualities and quantities of datasets. 
-# Discussion 
+### Discussion 
 The integration of synthetically generated data is the first time such methods have been applied to ICU medication data and offers a promising solution to enhance the performance of machine learning models for fluid overload, which may be translated to other ICU outcomes. A meta-learner was able to make a trade-off between different performance metrics and improve the ability to identify the minority class. 
 
 If you are interested, please cite:
