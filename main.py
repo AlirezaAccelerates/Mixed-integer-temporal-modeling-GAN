@@ -9,7 +9,6 @@ from sklearn.model_selection import StratifiedKFold, ParameterGrid
 from imblearn.over_sampling import SMOTE
 from ctgan import CTGAN
 from sklearn.naive_bayes import GaussianNB, ComplementNB, BernoulliNB, MultinomialNB
-from sklearn.linear_model import LogisticRegression
 from Choquet import ChoquetIntegral
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import roc_auc_score
@@ -120,10 +119,13 @@ for ite in range(10):
                                 X_opt_smote, y_opt_smote = smote.fit_resample(X_opt, y_opt)
                                 opt_data = pd.concat([X_opt, y_opt], axis=1)
 
-                                # Create and train the CTGAN model
+                                # Create and train the CTGAN model. To have more control over
+                                # the ctgan synthetic data generator, SDV library should be used.
+                                # We write this part here using ctgan library, which is a part of 
+                                # the SDV library for simplicit. Number of epochs is a hyperparameter here.
                                 ctgan = CTGAN()
                                 ctgan.fit(opt_data.astype('float'), epochs=epochs)
-                                # generate synthetic data with the CTGAN model
+                                # Generate synthetic data with the CTGAN model
                                 num_opt_data_ctgan = len(opt_data)
                                 opt_data_ctgan = ctgan.sample(num_opt_data_ctgan)
                                 X_opt_ctgan = opt_data_ctgan.iloc[:,:-1]
@@ -166,5 +168,5 @@ for ite in range(10):
                         best_params = {'rf': rf_params, 'svm': svm_params, 'xgb': xgb_params,
                                     'meta': meta_params, 'meta_model': meta_name}
 
-    # Print the best parameters
+    # Print the best parameters for every iteration
     print(f"Best Parameters for iteration {ite} is:", best_params)
