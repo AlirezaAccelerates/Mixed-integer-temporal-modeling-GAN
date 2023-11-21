@@ -1,6 +1,6 @@
 # Fluid overload predicting using a meta-model with the integration of synthetic data 
 
-This repo aims at providing insight into the workflow of the ["Improving mixed-integer temporal modeling by generating synthetic data using conditional generative adversarial networks: a case study of fluid overload prediction in the intensive care unit"]() paper, not a neuanced analysis and step by step coding and acheivng the results summarized in the paper. That's said, you can easily use and expand the provided workflow and draw the appropriated performance results based on your application and avaiable data.
+This repo aims to provide insight into the workflow of the ["Improving mixed-integer temporal modeling by generating synthetic data using conditional generative adversarial networks: a case study of fluid overload prediction in the intensive care unit"]() paper, not a nuanced analysis and step-by-step coding and achieving the results summarized in the paper. That said, you can easily use and expand the provided workflow and draw the appropriate performance results based on your application and available data.
 
 ## Overview
 ![](Overview.png)
