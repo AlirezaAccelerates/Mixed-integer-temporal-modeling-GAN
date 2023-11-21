@@ -1,3 +1,4 @@
+# Import necessary libraries
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,14 +20,15 @@ random_state = 2023
 
 # Load the data
 data_fluid_overload_imputed = pd.read_csv("./data_fluid.overload_imputed.csv")
+unique_pat_num = 991
 
 # Calculate the number of imputed datasets
-total_datasets = len(data_fluid_overload_imputed) // 991
+total_datasets = len(data_fluid_overload_imputed) // unique_pat_num
 
 # Split the DataFrame into individual datasets
-datasets = [data_fluid_overload_imputed.iloc[i*991:(i+1)*991] for i in range(total_datasets)]
+datasets = [data_fluid_overload_imputed.iloc[i*unique_pat_num:(i+1)*unique_pat_num] for i in range(total_datasets)]
 
-# Randomly select 10 datasets
+# Randomly select ten subdatasets
 selected_datasets = np.random.choice(datasets, size=10, replace=False)
 
 # Combine the selected datasets into a single DataFrame
@@ -71,98 +73,98 @@ meta_grids = {
 cv = StratifiedKFold(n_splits=5)
 cv2 = StratifiedKFold(n_splits=5)
 
-# Initialize the best score and best params
-best_score = 0
-best_score_meta = 0
-best_params = {}
+# Iterate over all imputed dataset and combinations of hyperparameters
+for ite in range(10):
+    # Initialize the best score and best params
+    best_score = 0
+    best_score_meta = 0
+    best_params = {}
+    data_fold = data.iloc[991*ite:991*(ite+1),:]
+    label_fold = label.iloc[991*ite:991*(ite+1),:]
+    for rf_params in ParameterGrid(rf_grid):
+        for svm_params in ParameterGrid(svm_grid):
+            for xgb_params in ParameterGrid(xgb_grid):
+                # Find the best meta-model
+                for meta_name, meta_grid in meta_grids.items():
+                    for meta_params in ParameterGrid(meta_grid):
+                        ensemble_scores = []
+                        # Instantiate meta-model based on the type
+                        if meta_name == 'RandomForest':
+                            meta_model = RandomForestClassifier(**meta_params)
+                        elif meta_name == 'MLP':
+                            meta_model = MLPClassifier(**meta_params)
+                        elif meta_name == 'GNaiveBayes':
+                            meta_model = GaussianNB(**meta_params)
+                        elif meta_name == 'BNaiveBayes':
+                            meta_model = BernoulliNB(**meta_params)
+                        elif meta_name == 'CNaiveBayes':
+                            meta_model = ComplementNB(**meta_params)
+                        elif meta_name == 'MNaiveBayes':
+                            meta_model = MultinomialNB(**meta_params)
+                        elif meta_name == 'Voting':
+                            meta_model = VotingClassifier(estimators=[('rf', rf_model), ('svm', svm_model), ('xgb', xgb_model)], voting='soft')  
+                        elif meta_name == 'Choquet':
+                            meta_model = ChoquetIntegral()                    
 
-# Iterate over all combinations of hyperparameters
-for rf_params in ParameterGrid(rf_grid):
-    for svm_params in ParameterGrid(svm_grid):
-        for xgb_params in ParameterGrid(xgb_grid):
-            #Find the best meta-model
-            for meta_name, meta_grid in meta_grids.items():
-                for meta_params in ParameterGrid(meta_grid):
-                    ensemble_scores = []
-                    # Instantiate meta-model based on the type
-                    if meta_name == 'RandomForest':
-                        meta_model = RandomForestClassifier(**meta_params)
-                    elif meta_name == 'MLP':
-                        meta_model = MLPClassifier(**meta_params)
-                    elif meta_name == 'GNaiveBayes':
-                        meta_model = GaussianNB(**meta_params)
-                    elif meta_name == 'BNaiveBayes':
-                        meta_model = BernoulliNB(**meta_params)
-                    elif meta_name == 'CNaiveBayes':
-                        meta_model = ComplementNB(**meta_params)
-                    elif meta_name == 'MNaiveBayes':
-                        meta_model = MultinomialNB(**meta_params)
-                    elif meta_name == 'Voting':
-                        meta_model = VotingClassifier(estimators=[('rf', rf_model), ('svm', svm_model), ('xgb', xgb_model)], voting='soft')  
-                    elif meta_name == 'Choquet':
-                        meta_model = ChoquetIntegral()                    
+                        for train_idx, test_idx in cv.split(data_fold, label_fold):
+                            X_train, X_test = data_fold[train_idx], data_fold[test_idx]
+                            y_train, y_test = label_fold[train_idx], label_fold[test_idx]
 
-                    for train_idx, test_idx in cv.split(data, label):
-                        X_train, X_test = data[train_idx], data[test_idx]
-                        y_train, y_test = label[train_idx], label[test_idx]
+                            for opt_idx, val_idx in cv2.split(X_train, y_train):
+                                X_opt, X_val = X_train[opt_idx], X_train[val_idx]
+                                y_opt, y_val = y_train[opt_idx], y_train[val_idx]  
+                                ensemble_scores_inner = []
 
-                        for opt_idx, val_idx in cv2.split(X_train, y_train):
-                            X_opt, X_val = X_train[opt_idx], X_train[val_idx]
-                            y_opt, y_val = y_train[opt_idx], y_train[val_idx]  
-                            ensemble_scores_inner = []
+                                # Apply SMOTE
+                                smote = SMOTE(random_state = random_state)
+                                X_opt_smote, y_opt_smote = smote.fit_resample(X_opt, y_opt)
+                                opt_data = pd.concat([X_opt, y_opt], axis=1)
 
-                            # Apply SMOTE
-                            smote = SMOTE(random_state = random_state)
-                            X_opt_smote, y_opt_smote = smote.fit_resample(X_opt, y_opt)
+                                # Create and train the CTGAN model
+                                ctgan = CTGAN()
+                                ctgan.fit(opt_data.astype('float'), epochs=epochs)
+                                # generate synthetic data with the CTGAN model
+                                num_opt_data_ctgan = len(opt_data)
+                                opt_data_ctgan = ctgan.sample(num_opt_data_ctgan)
+                                X_opt_ctgan = opt_data_ctgan.iloc[:,:-1]
+                                y_opt_ctgan = opt_data_ctgan.iloc[:,-1]
+                                # Prepare the training data
+                                X_opt = pd.concat([X_opt, X_opt_smote, X_opt_ctgan], axis =1)
+                                y_opt = pd.concat([y_opt, y_opt_smote, y_opt_ctgan], axis =1)
 
-                            opt_data = pd.concat([X_opt, y_opt], axis=1)
+                                # Train each base model with the current set of parameters
+                                rf_model = RandomForestClassifier(**rf_params).fit(X_opt, y_opt)
+                                svm_model = SVC(**svm_params, probability=True).fit(X_opt, y_opt)
+                                xgb_model = xgb.XGBClassifier(**xgb_params).fit(X_opt, y_opt)
 
-                            # Create and train the CTGAN model
-                            ctgan = CTGAN()
-                            ctgan.fit(opt_data.astype('float'), epochs=epochs)
+                                # Generate predictions (probabilities) from each model
+                                rf_pred = rf_model.predict_proba(X_val)
+                                svm_pred = svm_model.predict_proba(X_val)
+                                xgb_pred = xgb_model.predict_proba(X_val)
 
-                            num_opt_data_ctgan = len(opt_data)
-                            opt_data_ctgan = ctgan.sample(num_opt_data_ctgan)
+                                # Combine the predictions for the meta-model
+                                meta_features = np.column_stack([rf_pred, svm_pred, xgb_pred])
 
-                            X_opt_ctgan = opt_data_ctgan.iloc[:,:-1]
-                            y_opt_ctgan = opt_data_ctgan.iloc[:,-1]
+                                # Train the meta-model
+                                meta_model = meta_model.fit(meta_features, y_val)
 
-                            X_opt = pd.concat([X_opt, X_opt_smote, X_opt_ctgan], axis =1)
-                            y_opt = pd.concat([y_opt, y_opt_smote, y_opt_ctgan], axis =1)
+                                # Evaluate the meta-model
+                                meta_model_pred = meta_model.predict(meta_features)
+                                auc = roc_auc_score(y_val, meta_model_pred)
 
-                            # Train each base model with the current set of parameters
-                            rf_model = RandomForestClassifier(**rf_params).fit(X_opt, y_opt)
-                            svm_model = SVC(**svm_params, probability=True).fit(X_opt, y_opt)
-                            xgb_model = xgb.XGBClassifier(**xgb_params).fit(X_opt, y_opt)
+                                ensemble_scores_inner.append(auc)
 
-                            # Generate predictions (probabilities) from each model
-                            rf_pred = rf_model.predict_proba(X_val)
-                            svm_pred = svm_model.predict_proba(X_val)
-                            xgb_pred = xgb_model.predict_proba(X_val)
+                        # Average score of the inner loop
+                        avg = np.append(np.mean(ensemble_scores_inner))
 
-                            # Combine the predictions for the meta-model
-                            meta_features = np.column_stack([rf_pred, svm_pred, xgb_pred])
+                    # Average score for this combination
+                    avg_score = np.mean(avg)
 
-                            # Train the meta-model
-                            meta_model = meta_model.fit(meta_features, y_val)
+                    # Update best score and parameters if current score is better
+                    if avg_score > best_score:
+                        best_score = avg_score
+                        best_params = {'rf': rf_params, 'svm': svm_params, 'xgb': xgb_params,
+                                    'meta': meta_params, 'meta_model': meta_name}
 
-                            # Evaluate the meta-model
-                            meta_model_pred = meta_model.predict(meta_features)
-                            auc = roc_auc_score(y_val, meta_model_pred)
-
-                            ensemble_scores_inner.append(auc)
-
-                    # Average score of the inner loop
-                    avg = np.append(np.mean(ensemble_scores_inner))
-
-                # Average score for this combination
-                avg_score = np.mean(avg)
-
-                # Update best score and parameters if current score is better
-                if avg_score > best_score:
-                    best_score = avg_score
-                    best_params = {'rf': rf_params, 'svm': svm_params, 'xgb': xgb_params,
-                                'meta': meta_params, 'meta_model': meta_name}
-
-# Print the best parameters
-print("Best Parameters:", best_params)
+    # Print the best parameters
+    print(f"Best Parameters for iteration {ite} is:", best_params)
