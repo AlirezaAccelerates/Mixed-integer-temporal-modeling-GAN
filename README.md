@@ -2,7 +2,7 @@
 
 This repo aims to provide insight into the workflow of the ["Improving mixed-integer temporal modeling by generating synthetic data using conditional generative adversarial networks: a case study of fluid overload prediction in the intensive care unit"](https://www.sciencedirect.com/science/article/abs/pii/S0010482523012143) paper, not a nuanced analysis and step-by-step coding and achieving the results summarized in the paper. That said, you can easily use and expand the provided workflow and draw the appropriate performance results based on your application and available data.
 
-#Highlights
+# Highlights
 • Addresses gap in modeling mixed-integer temporal data for ICU medication.
 
 • Novel application of synthetic data integration to ICU medication data.
